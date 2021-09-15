@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Git项目预览</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css">
+		<style type="text/css">
+			.divider{ margin: 10px 0; }
+			.desc{min-height: 100px; max-height: 200px; overflow: hidden;}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+		  <h2>Git项目预览（基于gitlab V4 API）</h2>
+		  <p>Group列表 --> 项目列表 --> 预览项目README.md</p>
+		  <p>1、JQuery@3.6.0； 2、bootstrap@5.1.1； 3、jquery-base64-js@1.0.1； 4、marked@1.2.7； 5、cdn.jsdelivr.net</p>
+          <div class="divider"></div>
+		  <div class="input-group">
+            <span class="input-group-text">Git API(v4):</span>
+            <input type="text" class="form-control" id="gitApiUrl" value="" placeholder="http://gitdomain/api/v4">
+          </div>
+          <div class="divider"></div>
+		  <div class="input-group">
+            <span class="input-group-text">private token:</span>
+            <input type="text" class="form-control" id="privateToken" value="" placeholder="git api access private token">
+            <input id="getGroupsBtn" type="button" value="view" />
+          </div>
+          <div class="divider"></div>
+	      <div id="groupBox" class="row row-cols-1 row-cols-sm-3 row-cols-md-4 g-3">
+	      </div>
+	    </div>
+		<div class="modal fade" id="projectsBox" aria-hidden="true" aria-labelledby="projectsBoxLabel" tabindex="-1">
+		  <div class="modal-dialog modal-fullscreen">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <h5 class="modal-title" id="projectsBoxLabel">项目列表(当前显示100条，通过Next按钮追加）</h5>
+		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+		      </div>
+		      <div class="modal-body">
+		        <div class="table-responsive">
+		          <table class="table table-striped table-sm">
+		            <thead>
+		              <tr>
+		                <th scope="col">Name(Path)</th>
+		                <th scope="col">Description</th>
+		                <th scope="col">Default Branch</th>
+		                <th scope="col">Visibility</th>
+		                <th scope="col">Archived</th>
+		                <th scope="col">Git Clone</th>
+		                <th scope="col">Option</th>
+		              </tr>
+		            </thead>
+		            <tbody id="projectsBodyBox">
+		            </tbody>
+		          </table>
+		        </div>
+		      </div>
+		      <div class="modal-footer">
+		        <nav aria-label="Page navigation">
+				  <ul class="pagination">
+				    <li class="page-item"><a id="currPageBtn" class="page-link" href="#">1</a></li>
+				    <li class="page-item"><a id="nextPageBtn" class="page-link" href="#">Next</a></li>
+				  </ul>
+				</nav>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<div class="modal fade" id="viewReadmeMdBox" aria-hidden="true" aria-labelledby="viewReadmeMdBoxLabel" tabindex="-1">
+		  <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <h5 class="modal-title" id="viewReadmeMdBoxLabel">Project README.md</h5>
+		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+		      </div>
+		      <div id="viewReadmeMBodyBox" class="modal-body">
+		        README.md
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/jquery-base64-js@1.0.1/jquery.base64.min.js"></script>
+		 <script src="https://cdn.jsdelivr.net/npm/marked@1.2.7/marked.min.js"></script>
+		 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.min.js"></script>
+		<script type="text/javascript">
+			var _PER_PAGE = 100, _PAGE = 1;
+			var getGroups = function(api, token, page){
+				if(null == page || undefined == page || '' == page){
+					page = _PAGE;
+				}
+				if(1 == page){
+					$('#groupBox').empty();
+				}
+				var url = api + '/groups?all_available=true' + '&page='+ page + '&per_page=' + _PER_PAGE;
+				$.ajax({
+					headers:{
+						"PRIVATE-TOKEN":token
+					},
+					dataType:"json",
+					url: url
+				}).done(function(data){
+					// check data
+					for(idx in data){
+						var item = data[idx];
+						var id = item['id'];
+						var v = item['visibility'];
+						var d = item['description'];
+						var avatar = item['avatar_url'];
+						var webUrl = item['web_url'];
+						var name = item['name'];
+						var path = item['path'];
+						var groupBox = $('<div class="col"></div>');
+						var groupBodyBox = $('<div class="card-body"></div>');
+						var groupTextBox = $('<p class="card-text desc"></p>');
+						var groupBtnBox = $('<div class="d-flex justify-content-between align-items-center"></div>');
+						var groupBtnGroupBox = $('<div class="btn-group"></div>');
+						var groupIdBox = $('<small class="text-muted"></small>');
+
+						groupTextBox.append('['+name+'('+path+')]'+ d);
+
+						groupIdBox.append(v);
+
+						var viewGroupBtn = $('<a class="btn btn-sm btn-outline-secondary" href="'+webUrl+'" target="_blank">查看组</a>');
+						groupBtnGroupBox.append(viewGroupBtn);
+						var viewProjectsBtn = $('<button i-id="'+id+'" type="button" class="btn btn-sm btn-outline-secondary">查看项目</button>');
+						viewProjectsBtn.bind('click', function(){
+							getProjects(api, token, $(this).attr('i-id'));
+						});
+						groupBtnGroupBox.append(viewProjectsBtn);
+
+						groupBtnBox.append(groupBtnGroupBox);
+						groupBtnBox.append(groupIdBox);
+
+						groupBodyBox.append(groupTextBox);
+						groupBodyBox.append(groupBtnBox);
+
+						groupBox.append(groupBodyBox);
+
+						$('#groupBox').append(groupBox);
+					}
+				}).fail(function(){
+					console.info('fail');
+				});
+			}
+			var bindPageBtnEvent = function(api, token, groupId){
+				var page = $('#currPageBtn').val();
+				if(null == page || undefined == page || '' == page){
+					page = _PAGE;
+				}
+				page = parseInt(page);
+				$('#nextPageBtn').bind('click', function(){
+					page = page + 1;
+					if('disabled' != $(this).attr('disabled')){
+						getProjects(api, token, groupId, page);
+					}
+				});
+			}
+			var getProjects = function(api, token, groupId, page){
+				if(null == page || undefined == page || '' == page){
+					page = _PAGE;
+				}
+				if(1 == page){
+					$('#projectsBodyBox').empty();
+					bindPageBtnEvent(api, token, groupId);
+				}
+				$('#currPageBtn').text(page);
+				var url =  api + '/groups/'+groupId+'/projects?page='+ page + '&per_page=' + _PER_PAGE;
+				$.ajax({
+					headers:{
+						"PRIVATE-TOKEN":token
+					},
+					dataType:"json",
+					url: url
+				}).done(function(data){
+					// check data
+					var len = Object.keys(data).length;
+					if(0 == len || _PER_PAGE > len){
+						$('#nextPageBtn').attr('disabled',true);
+					}else{
+						$('#nextPageBtn').attr('disabled', false);
+					}
+					for(idx in data){
+						var item = data[idx];
+						var id = item['id'], name=item['name'], path=item['path'],archived=item['archived'],visibility=item['visibility'],ssh_url_to_repo=item['ssh_url_to_repo'],http_url_to_repo=item['http_url_to_repo'],web_url=item['web_url'],default_branch=item['default_branch'],description=item['description'];
+						var projectTrBox = $('<tr></tr>');
+						var projectNameTdBox=$('<td>'+name+'('+path+')</td>');
+						projectTrBox.append(projectNameTdBox);
+						var projectDescTdBox = $('<td>'+description+'</td>');
+						projectTrBox.append(projectDescTdBox);
+						var projectBranchTdBox =  $('<td>'+default_branch+'</td>');
+						projectTrBox.append(projectBranchTdBox);
+						var projectVisibilityTdBox =  $('<td>'+visibility+'</td>');
+						projectTrBox.append(projectVisibilityTdBox);
+						var projectArchivedTdBox =  $('<td>'+archived+'</td>');
+						projectTrBox.append(projectArchivedTdBox);
+						var projectCloneTdBox =  $('<td>'+ssh_url_to_repo+'<br />'+http_url_to_repo+'</td>');
+						projectTrBox.append(projectCloneTdBox);
+						var projectOptionTdBox =  $('<td></td>');
+						projectTrBox.append(projectOptionTdBox);
+
+						var projectOptionGroupBox = $('<div class="btn-group"></div>');
+						var projectViewBtn = $('<a href="'+web_url+'" target="_blank" class="btn btn-primary">查看项目</a>');
+						var projectReadmeViewBtn = $('<a i-id="'+id+'" href="#" class="btn btn-primary">Readme</a>');
+						projectReadmeViewBtn.bind('click', function(){
+							viewReadmeMd(api, token, $(this).attr('i-id'));
+						});
+						projectOptionGroupBox.append(projectViewBtn);
+						projectOptionGroupBox.append(projectReadmeViewBtn);
+						projectOptionTdBox.append(projectOptionGroupBox);
+
+						$('#projectsBodyBox').append(projectTrBox);
+					}
+
+					$('#projectsBoxLabel').attr('g-id', groupId);
+					$('#projectsBox').addClass('show');
+					$('#projectsBox').show();
+					$('#projectsBox').find('.btn-close').click(function(){
+						console.info('project');
+						//$('#projectsBox').removeClass('show');
+						$('#projectsBox').hide();
+						$('#projectsBoxLabel').removeAttr('g-id');
+					});
+				}).fail(function(){
+					console.info('fail');
+				});
+			}
+			var viewReadmeMd = function(api, token, projectId){
+				$('#viewReadmeMBodyBox').empty();
+				var url = api + '/projects/'+projectId+'/repository/files/README.md?ref=master';
+				$.ajax({
+					headers:{
+						"PRIVATE-TOKEN": token
+					},
+					dataType:"json",
+					url: url
+				}).done(function(data){
+					var readmeMd = $.base64.atob(data['content'], true);
+					$('#viewReadmeMBodyBox').html(marked(readmeMd));
+
+					$('#viewReadmeMdBox').addClass('show');
+					$('#viewReadmeMdBox').show();
+					$('#viewReadmeMdBox').find('.btn-close').click(function(){
+						console.info('readme');
+						//$('#viewReadmeMdBox').removeClass('show');
+						$('#viewReadmeMdBox').hide();
+					});
+				}).fail(function(){
+					console.info('fail');
+				});
+			};
+			$(function(){
+				$('#getGroupsBtn').click(function(){
+					var gitApiUrl = $('#gitApiUrl').val();
+					var privateToken = $('#privateToken').val();
+					getGroups(gitApiUrl, privateToken);
+				});
+			});
+		</script>
+	</body>
+</html>
